@@ -29,7 +29,7 @@ istr_tp_dealloc(istrobject* self)
    dealloc frees it with: PyObject_Malloc() up to 3.12, PyMem_Malloc()
    from 3.13. The C extension is never built for PyPy.
 
-   Checked for 3.10 to 3.15 against their unicode_subtype_new() and
+   Checked for 3.8 to 3.15 against their unicode_subtype_new() and
    unicode_dealloc(). A newer CPython must be checked the same way, and
    the tests run under PYTHONMALLOC=debug, before the limit is raised. */
 #if PY_VERSION_HEX >= 0x03100000
@@ -146,16 +146,27 @@ istr_new(PyTypeObject* type, PyObject* args, PyObject* kwds)
     PyObject* encoding = NULL;
     PyObject* errors = NULL;
     PyObject* ret = NULL;
+    Py_ssize_t nargs = PyTuple_GET_SIZE(args);
 
-    if (!PyArg_ParseTupleAndKeywords(
-            args, kwds, "|OOO:str", kwlist, &x, &encoding, &errors)) {
+    if (kwds == NULL && nargs == 1) {
+        x = PyTuple_GET_ITEM(args, 0);
+    } else if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOO:str", kwlist,
+                                            &x, &encoding, &errors)) {
         return NULL;
     }
     if (x != NULL && IStr_CheckExact(state, x)) {
         Py_INCREF(x);
         return x;
     }
-    ret = PyUnicode_Type.tp_new(type, args, kwds);
+    if (kwds == NULL && nargs == 1 && PyUnicode_CheckExact(x)) {
+        /* istr(x) for an exact str: the same allocation
+           istr_tp_vectorcall() uses.  On 3.8 type_call() cannot reach that
+           vectorcall, so this keeps istr() off str.__new__(); on 3.9+ it
+           only covers direct __new__ calls. */
+        ret = _istr_from_exact_str(type, x);
+    } else {
+        ret = PyUnicode_Type.tp_new(type, args, kwds);
+    }
     if (ret == NULL) {
         return NULL;
     }
