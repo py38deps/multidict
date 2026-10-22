@@ -260,4 +260,5 @@ jobs:
         MULTIDICT_NO_EXTENSIONS: ${{ matrix.no-extensions }}
       run: >-
         python -Im pytest -m "not leaks and not hypothesis and not capi"
-        --no-cov tests/
+        --no-cov ${{ matrix.no-extensions && '--no-c-extensions' || '' }}
+        tests/
