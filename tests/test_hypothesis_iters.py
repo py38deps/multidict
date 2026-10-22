@@ -9,9 +9,10 @@ fuzzing far more mutation-kind/timing combinations than the fixed cases in
 ``tests/test_guard.py``.
 """
 
+from __future__ import annotations
+
 import sys
-from collections.abc import Callable, Iterator
-from typing import Literal
+from typing import Callable, Iterator, List, Literal, Tuple, Type, Union
 
 import pytest
 
@@ -33,8 +34,8 @@ else:  # pragma: no cover
 
 pytestmark = pytest.mark.hypothesis
 
-_MD_Classes = type[MultiDict[object]] | type[CIMultiDict[object]]
-_Pairs = list[tuple[str, object]]
+_MD_Classes = Union[Type[MultiDict[object]], Type[CIMultiDict[object]]]
+_Pairs = List[Tuple[str, object]]
 _IterFactory = Callable[[MutableMultiMapping[object]], Iterator[object]]
 
 _ITER_FACTORIES: dict[str, _IterFactory] = {
@@ -128,35 +129,34 @@ _MUTATION_MARKER_KEY = "__iters_mutation_marker_key__"
 
 
 def _apply_mutation(md: MutableMultiMapping[object], mutation: _Mutation) -> None:
-    match mutation:
-        case "add":
-            md.add(_MUTATION_MARKER_KEY, "mutated")
-        case "setitem":
-            md[_MUTATION_MARKER_KEY] = "mutated"
-        case "delitem":
-            del md[_MUTATION_MARKER_KEY]
-        case "clear":
-            md.clear()
-        case "popone":
-            md.popone(_MUTATION_MARKER_KEY, None)
-        case "popall":
-            md.popall(_MUTATION_MARKER_KEY, None)
-        case "update":
-            # A fresh key, not the marker: update() overwriting an *existing*
-            # entry's value in place is a separate, narrower case this file
-            # doesn't assert about (see the module docstring note below).
-            md.update([("__iters_mutation_new_key__", "mutated")])
-        case "extend":
-            md.extend([("__iters_mutation_new_key__", "mutated")])
-        case "merge":
-            # Also a fresh key: merge() on an already-present key is a
-            # documented no-op, so it wouldn't change anything for the
-            # guard to catch.
-            md.merge([("__iters_mutation_new_key__", "mutated")])
-        case "setdefault_new_key":
-            md.setdefault("__another_marker_key__", "mutated")
-        case _:  # pragma: no cover
-            assert_never(mutation)
+    if mutation == "add":
+        md.add(_MUTATION_MARKER_KEY, "mutated")
+    elif mutation == "setitem":
+        md[_MUTATION_MARKER_KEY] = "mutated"
+    elif mutation == "delitem":
+        del md[_MUTATION_MARKER_KEY]
+    elif mutation == "clear":
+        md.clear()
+    elif mutation == "popone":
+        md.popone(_MUTATION_MARKER_KEY, None)
+    elif mutation == "popall":
+        md.popall(_MUTATION_MARKER_KEY, None)
+    elif mutation == "update":
+        # A fresh key, not the marker: update() overwriting an *existing*
+        # entry's value in place is a separate, narrower case this file
+        # doesn't assert about (see the module docstring note below).
+        md.update([("__iters_mutation_new_key__", "mutated")])
+    elif mutation == "extend":
+        md.extend([("__iters_mutation_new_key__", "mutated")])
+    elif mutation == "merge":
+        # Also a fresh key: merge() on an already-present key is a
+        # documented no-op, so it wouldn't change anything for the
+        # guard to catch.
+        md.merge([("__iters_mutation_new_key__", "mutated")])
+    elif mutation == "setdefault_new_key":
+        md.setdefault("__another_marker_key__", "mutated")
+    else:  # pragma: no cover
+        assert_never(mutation)
 
 
 def test_apply_mutation_covers_every_mutation() -> None:

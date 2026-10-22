@@ -1,12 +1,15 @@
 """keys() and iter() yield each key once, under its first-seen spelling."""
 
+from __future__ import annotations
+
 import platform
+from typing import Type, Union
 
 import pytest
 
 from multidict import CIMultiDict, MultiDict, MultiDictProxy
 
-_MD_Classes = type[MultiDict[str]] | type[CIMultiDict[str]]
+_MD_Classes = Union[Type[MultiDict[str]], Type[CIMultiDict[str]]]
 
 IS_PYPY = platform.python_implementation() == "PyPy"
 

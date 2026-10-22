@@ -4,8 +4,11 @@ Not a test module itself (no ``test_`` prefix), same convention as
 ``tests/gen_pickles.py``.
 """
 
+from __future__ import annotations
+
 from collections import deque
 from collections.abc import Callable, Iterable
+from typing import Tuple
 
 import pytest
 
@@ -62,7 +65,7 @@ def case_variant(draw: st.DrawFn, key: str) -> str:
     return "".join(chars)
 
 
-_Pair = tuple[str, object]
+_Pair = Tuple[str, object]
 
 
 class MultiDictModel:

@@ -1,5 +1,7 @@
 """Test passing invalid arguments to the methods of the MultiDict class."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import cast
 

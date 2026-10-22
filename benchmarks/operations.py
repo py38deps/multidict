@@ -15,8 +15,11 @@ would otherwise compress every ratio toward 1.  It does not remove the bound
 method lookup and call of method-based operations; a caller pays those too.
 """
 
+from __future__ import annotations
+
 import enum
 import importlib
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -36,15 +39,20 @@ class Kind(enum.Flag):
 
 BOTH = Kind.DICT | Kind.MULTIDICT
 
+# `slots=True` was added to dataclasses in Python 3.10.
+_DATACLASS_OPTIONS: dict[str, bool] = {"frozen": True}
+if sys.version_info >= (3, 10):
+    _DATACLASS_OPTIONS["slots"] = True
 
-@dataclass(frozen=True, slots=True)
+
+@dataclass(**_DATACLASS_OPTIONS)
 class Case:
     setup: Callable[[], Any]
     run: Callable[[Any], None]
     noop: Callable[[Any], None]
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(**_DATACLASS_OPTIONS)
 class Impl:
     id: str
     label: str
@@ -54,7 +62,7 @@ class Impl:
     load_proxy: Callable[[], type] | None = None
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(**_DATACLASS_OPTIONS)
 class Operation:
     id: str
     label: str

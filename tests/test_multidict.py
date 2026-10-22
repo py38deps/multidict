@@ -13,7 +13,8 @@ from collections import Counter, deque
 from collections.abc import Callable, Iterable, Iterator, KeysView, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from types import ModuleType
-from typing import Any, TypeVar, cast
+from typing import Any, Dict, TypeVar, Union, cast
+from typing import Mapping as MappingType
 
 import pytest
 
@@ -53,7 +54,10 @@ def chained_callable(
             value = element(value)
 
         return cast(
-            MultiMapping[int | str] | MutableMultiMapping[int | str],
+            Union[
+                MultiMapping[Union[int, str]],
+                MutableMultiMapping[Union[int, str]],
+            ],
             value,
         )
 
@@ -512,7 +516,7 @@ class BaseMultiDictTest:
     def test_eq_bad_mapping_len(
         self, cls: type[MultiDict[int]] | type[CIMultiDict[int]]
     ) -> None:
-        class BadMapping(Mapping[str, int]):
+        class BadMapping(MappingType[str, int]):
             def __getitem__(self, key: str) -> int:
                 return 1  # pragma: no cover  # `len()` fails earlier
 
@@ -531,7 +535,7 @@ class BaseMultiDictTest:
         self,
         cls: type[MultiDict[int]] | type[CIMultiDict[int]],
     ) -> None:
-        class BadMapping(Mapping[str, int]):
+        class BadMapping(MappingType[str, int]):
             def __getitem__(self, key: str) -> int:
                 return 1 // 0
 
@@ -3507,7 +3511,7 @@ def test_pure_python_extend_reentrant_no_deadlock() -> None:
     acquire it again from such a callback, on every build."""
     d: _pure.MultiDict[int] = _pure.MultiDict({"a": 1})
 
-    class ReentrantMapping(dict[str, int]):
+    class ReentrantMapping(Dict[str, int]):
         def keys(self) -> Any:
             d.add("reentrant", 1)
             return super().keys()

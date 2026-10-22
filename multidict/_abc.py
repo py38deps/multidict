@@ -1,6 +1,17 @@
+from __future__ import annotations
+
 import abc
-from collections.abc import Iterable, Mapping, MutableMapping
-from typing import TYPE_CHECKING, Protocol, TypeVar, Union, overload
+from typing import (
+    TYPE_CHECKING,
+    Iterable,
+    Mapping,
+    MutableMapping,
+    Protocol,
+    Tuple,
+    TypeVar,
+    Union,
+    overload,
+)
 
 if TYPE_CHECKING:
     from ._multidict_py import istr
@@ -22,7 +33,7 @@ class SupportsIKeys(Protocol[_V_co]):
     def __getitem__(self, key: istr, /) -> _V_co: ...
 
 
-MDArg = SupportsKeys[_V] | SupportsIKeys[_V] | Iterable[tuple[str, _V]] | None
+MDArg = Union[SupportsKeys[_V], SupportsIKeys[_V], Iterable[Tuple[str, _V]], None]
 
 
 class MultiMapping(Mapping[str, _V_co]):

@@ -6,6 +6,8 @@ multidict. It behaves mostly like a dict but it can have
 several values for the same key.
 """
 
+from __future__ import annotations
+
 import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any

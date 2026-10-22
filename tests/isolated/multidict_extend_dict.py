@@ -1,13 +1,13 @@
 import gc
 import sys
-from typing import Any
+from typing import Any, Dict
 
 import objgraph  # type: ignore[import-untyped]
 
 from multidict import MultiDict
 
 
-class NoLeakDict(dict[str, Any]):
+class NoLeakDict(Dict[str, Any]):
     """A subclassed dict to make it easier to test for leaks."""
 
 

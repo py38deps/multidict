@@ -5,6 +5,8 @@ GitHub Release body, which GitHub renders as Markdown. Headings, lists,
 emphasis and ``literals`` already read correctly there; roles do not.
 """
 
+from __future__ import annotations
+
 import re
 import sys
 
@@ -37,7 +39,8 @@ def _convert(match: re.Match[str]) -> str:
     if title is not None:
         return title
 
-    body = body.removeprefix("!")
+    if body.startswith("!"):
+        body = body[1:]
     if body.startswith("~"):
         body = body.rpartition(".")[2]
     if role in CALLABLE_ROLES:

@@ -10,6 +10,8 @@ pool. The one test that checks the pool is actually used is C-extension
 only, since there is nothing to reuse otherwise.
 """
 
+from __future__ import annotations
+
 import gc
 import sys
 import sysconfig

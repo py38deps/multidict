@@ -1,5 +1,7 @@
 """Test to_dict functionality for all multidict types."""
 
+from __future__ import annotations
+
 import contextlib
 import gc
 import sys

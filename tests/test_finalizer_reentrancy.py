@@ -7,6 +7,8 @@ when dropped, and the methods that consume an argument get an item that
 runs it too. Each finalizer mutates the same multidict in a different way.
 """
 
+from __future__ import annotations
+
 import sys
 from collections.abc import Callable, Iterator
 from types import ModuleType

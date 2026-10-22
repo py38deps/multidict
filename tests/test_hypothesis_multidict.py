@@ -5,7 +5,10 @@ case-sensitive and case-insensitive classes, via the existing
 ``any_multidict_class``-style fixtures in ``tests/conftest.py``.
 """
 
+from __future__ import annotations
+
 import pickle
+from typing import List, Tuple, Type, Union
 
 import pytest
 
@@ -36,8 +39,8 @@ from multidict import (  # noqa: E402
 
 pytestmark = pytest.mark.hypothesis
 
-_MD_Classes = type[MultiDict[object]] | type[CIMultiDict[object]]
-_Pairs = list[tuple[str, object]]
+_MD_Classes = Union[Type[MultiDict[object]], Type[CIMultiDict[object]]]
+_Pairs = List[Tuple[str, object]]
 
 # A small, colliding key pool so the stateful machine actually exercises
 # duplicate-key handling instead of drawing 25 essentially-unique keys.

@@ -10,6 +10,8 @@ with the same arithmetic; those numbers are approximate rather than exact, so
 the driver collects them only when asked to with ``--whole-process``.
 """
 
+from __future__ import annotations
+
 import json
 import os
 import sys

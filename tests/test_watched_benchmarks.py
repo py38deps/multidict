@@ -6,7 +6,9 @@ the operation itself. A copy is not watched, so every copy is watched
 inside the timed loop.
 """
 
-from collections.abc import Callable, Iterator
+from __future__ import annotations
+
+from typing import Callable, Iterator
 
 import pytest
 from pytest_codspeed import BenchmarkFixture

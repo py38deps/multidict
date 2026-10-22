@@ -3,7 +3,10 @@ requires = [
   # setuptools >= 77.0 required for PEP 639 SPDX license metadata
   # (it also covers the >= 67.0 floor needed for Python 3.12+ support,
   # and the >= 61.0 one for reading `[project]` from this file).
-  "setuptools >= 77.0",
+  # Python 3.8 caps setuptools at 75.3.x, which predates PEP 639, hence
+  # the `license` table and the conditional floor.
+  "setuptools >= 68, < 75.4 ; python_version < '3.9'",
+  "setuptools >= 77.0 ; python_version >= '3.9'",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -12,9 +15,8 @@ build-backend = "setuptools.build_meta"
 name = "multidict"
 description = "multidict implementation"
 authors = [{ name = "Andrew Svetlov", email = "andrew.svetlov@gmail.com" }]
-license = "Apache-2.0"
-license-files = ["LICENSE"]
-requires-python = ">= 3.10"
+license = { text = "Apache-2.0" }
+requires-python = ">= 3.8"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
 
@@ -22,6 +24,8 @@ classifiers = [
 
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -72,7 +76,7 @@ multidict = [
 
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py38"
 
 [tool.ruff.lint]
 # Keep this list small and intentional. Each entry is enforced
@@ -89,9 +93,16 @@ select = [
   # frequently introduce function-scoped imports that are unnecessary.
   "PLC0415",
   # pyupgrade: enforce modern Python syntax for the current
-  # ``target-version`` (currently py310).
+  # ``target-version`` (currently py38).
   "UP",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# Upstream writes these annotations as strings on purpose: `threading.RLock`
+# is a factory rather than a type, and the others are forward references.
+# The backport keeps them verbatim.
+"multidict/_multidict_py.py" = ["UP037"]
+"tests/test_pickle.py" = ["UP037"]
 
 [tool.cibuildwheel]
 # `build[uv]` makes cibuildwheel use `uv` for every venv it provisions,

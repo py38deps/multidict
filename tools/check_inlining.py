@@ -53,6 +53,8 @@ change; a regression that is accepted on purpose edits its rule there
 too, with the measurement that justified it.
 """
 
+from __future__ import annotations
+
 import argparse
 import re
 import shlex

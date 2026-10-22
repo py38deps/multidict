@@ -1,13 +1,13 @@
 import gc
 import sys
-from typing import Any
+from typing import Any, Tuple
 
 import objgraph  # type: ignore[import-untyped]
 
 from multidict import MultiDict
 
 
-class NotLeakTuple(tuple[Any, ...]):
+class NotLeakTuple(Tuple[Any, ...]):
     """A subclassed tuple to make it easier to test for leaks."""
 
 

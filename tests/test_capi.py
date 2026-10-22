@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import importlib
 import os
 import sys
 import threading
 import types
+from typing import Tuple
 
 import pytest
 
@@ -681,7 +684,7 @@ MAX_WATCHERS = _testcapi.MULTIDICT_MAX_WATCHERS
 # Each recorded event is (event, self, user_data, identity, hash, key,
 # value, old_value); `self` is the object except on DEALLOCATED, where it
 # is its address. See record_event() in _testcapi.c.
-Event = tuple[object, ...]
+Event = Tuple[object, ...]
 
 
 class Watcher:

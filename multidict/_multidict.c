@@ -1,6 +1,8 @@
 #include <Python.h>
 #include <structmember.h>
 
+#include "_multilib/py38_compat.h"
+
 #include "_multilib/bulk_update.h"
 #include "_multilib/capsule.h"
 #include "_multilib/debug.h"
@@ -1949,5 +1951,20 @@ static PyModuleDef multidict_module = {
 PyMODINIT_FUNC
 PyInit__multidict(void)
 {
+#if PY_VERSION_HEX < 0x03090000
+    /* PEP 573 (per-type module association) does not exist on 3.8, so
+       py38_compat.h keeps one module state per process.  Sharing it between
+       subinterpreters corrupts the interpreter that no longer owns it;
+       refuse the import there and let multidict/_compat.py fall back to the
+       pure-Python implementation instead. */
+    if (PyThreadState_Get()->interp != PyInterpreterState_Main()) {
+        PyErr_SetString(
+            PyExc_ImportError,
+            "multidict: the C extension is not available in Python 3.8 "
+            "subinterpreters; the pure-Python implementation is used "
+            "instead");
+        return NULL;
+    }
+#endif
     return PyModuleDef_Init(&multidict_module);
 }

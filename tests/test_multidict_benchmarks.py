@@ -1,5 +1,7 @@
 """codspeed benchmarks for multidict."""
 
+from __future__ import annotations
+
 import pytest
 from pytest_codspeed import BenchmarkFixture
 

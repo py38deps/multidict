@@ -6,9 +6,10 @@ via the existing fixtures in ``tests/conftest.py``. See
 ``tests/test_hypothesis_iters.py`` for the iterator objects themselves.
 """
 
+from __future__ import annotations
+
 import sys
-from collections.abc import Callable
-from typing import Literal
+from typing import Callable, List, Literal, Tuple, Type, Union
 
 import pytest
 
@@ -30,8 +31,8 @@ else:  # pragma: no cover
 
 pytestmark = pytest.mark.hypothesis
 
-_MD_Classes = type[MultiDict[object]] | type[CIMultiDict[object]]
-_Pairs = list[tuple[str, object]]
+_MD_Classes = Union[Type[MultiDict[object]], Type[CIMultiDict[object]]]
+_Pairs = List[Tuple[str, object]]
 
 
 def _fold_for(any_multidict_class_name: str) -> Callable[[str], str]:
@@ -155,19 +156,18 @@ _MUTATION_MARKER_KEY = "__iteration_mutation_marker_key__"
 
 
 def _apply_mutation(md: MutableMultiMapping[object], mutation: _Mutation) -> None:
-    match mutation:
-        case "add":
-            md.add(_MUTATION_MARKER_KEY, "mutated")
-        case "setitem":
-            md[_MUTATION_MARKER_KEY] = "mutated"
-        case "delitem":
-            del md[_MUTATION_MARKER_KEY]
-        case "clear":
-            md.clear()
-        case "popone":
-            md.popone(_MUTATION_MARKER_KEY, None)
-        case _:  # pragma: no cover
-            assert_never(mutation)
+    if mutation == "add":
+        md.add(_MUTATION_MARKER_KEY, "mutated")
+    elif mutation == "setitem":
+        md[_MUTATION_MARKER_KEY] = "mutated"
+    elif mutation == "delitem":
+        del md[_MUTATION_MARKER_KEY]
+    elif mutation == "clear":
+        md.clear()
+    elif mutation == "popone":
+        md.popone(_MUTATION_MARKER_KEY, None)
+    else:  # pragma: no cover
+        assert_never(mutation)
 
 
 def test_apply_mutation_covers_every_mutation(

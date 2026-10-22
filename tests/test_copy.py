@@ -1,9 +1,10 @@
 import copy
+from typing import Type, Union
 
 from multidict import CIMultiDict, CIMultiDictProxy, MultiDict, MultiDictProxy
 
-_MD_Classes = type[MultiDict[int]] | type[CIMultiDict[int]]
-_MDP_Classes = type[MultiDictProxy[int]] | type[CIMultiDictProxy[int]]
+_MD_Classes = Union[Type[MultiDict[int]], Type[CIMultiDict[int]]]
+_MDP_Classes = Union[Type[MultiDictProxy[int]], Type[CIMultiDictProxy[int]]]
 
 
 def test_copy(any_multidict_class: _MD_Classes) -> None:

@@ -28,6 +28,8 @@ children run from a staging directory of a fixed length instead of from the
 tree; see ``Stage``.
 """
 
+from __future__ import annotations
+
 import argparse
 import concurrent.futures
 import json

@@ -47,7 +47,9 @@ static inline int
 IStr_CheckExact(MultiDict_CAPI* capi, PyObject* op)
 {
     PyTypeObject* type = capi->IStr_GetType(capi->state);
-    int ret = Py_IS_TYPE(op, type);
+    /* Py_IS_TYPE() is 3.10+; the comparison is equivalent and lets the
+       header compile on the 3.8/3.9 backport. */
+    int ret = Py_TYPE(op) == type;
     Py_DECREF(type);
     return ret;
 }
@@ -74,7 +76,7 @@ static inline int
 MultiDict_CheckExact(MultiDict_CAPI* capi, PyObject* op)
 {
     PyTypeObject* type = capi->MultiDict_GetType(capi->state);
-    int ret = Py_IS_TYPE(op, type);
+    int ret = Py_TYPE(op) == type;
     Py_DECREF(type);
     return ret;
 }
@@ -83,7 +85,7 @@ static inline int
 MultiDict_Check(MultiDict_CAPI* capi, PyObject* op)
 {
     PyTypeObject* type = capi->MultiDict_GetType(capi->state);
-    int ret = Py_IS_TYPE(op, type) || PyObject_TypeCheck(op, type);
+    int ret = Py_TYPE(op) == type || PyObject_TypeCheck(op, type);
     Py_DECREF(type);
     return ret;
 }
@@ -98,7 +100,7 @@ static inline int
 CIMultiDict_CheckExact(MultiDict_CAPI* capi, PyObject* op)
 {
     PyTypeObject* type = capi->CIMultiDict_GetType(capi->state);
-    int ret = Py_IS_TYPE(op, type);
+    int ret = Py_TYPE(op) == type;
     Py_DECREF(type);
     return ret;
 }
@@ -107,7 +109,7 @@ static inline int
 CIMultiDict_Check(MultiDict_CAPI* capi, PyObject* op)
 {
     PyTypeObject* type = capi->CIMultiDict_GetType(capi->state);
-    int ret = Py_IS_TYPE(op, type) || PyObject_TypeCheck(op, type);
+    int ret = Py_TYPE(op) == type || PyObject_TypeCheck(op, type);
     Py_DECREF(type);
     return ret;
 }
@@ -122,7 +124,7 @@ static inline int
 MultiDictProxy_CheckExact(MultiDict_CAPI* capi, PyObject* op)
 {
     PyTypeObject* type = capi->MultiDictProxy_GetType(capi->state);
-    int ret = Py_IS_TYPE(op, type);
+    int ret = Py_TYPE(op) == type;
     Py_DECREF(type);
     return ret;
 }
@@ -131,7 +133,7 @@ static inline int
 MultiDictProxy_Check(MultiDict_CAPI* capi, PyObject* op)
 {
     PyTypeObject* type = capi->MultiDictProxy_GetType(capi->state);
-    int ret = Py_IS_TYPE(op, type) || PyObject_TypeCheck(op, type);
+    int ret = Py_TYPE(op) == type || PyObject_TypeCheck(op, type);
     Py_DECREF(type);
     return ret;
 }
@@ -146,7 +148,7 @@ static inline int
 CIMultiDictProxy_CheckExact(MultiDict_CAPI* capi, PyObject* op)
 {
     PyTypeObject* type = capi->CIMultiDictProxy_GetType(capi->state);
-    int ret = Py_IS_TYPE(op, type);
+    int ret = Py_TYPE(op) == type;
     Py_DECREF(type);
     return ret;
 }
@@ -155,7 +157,7 @@ static inline int
 CIMultiDictProxy_Check(MultiDict_CAPI* capi, PyObject* op)
 {
     PyTypeObject* type = capi->CIMultiDictProxy_GetType(capi->state);
-    int ret = Py_IS_TYPE(op, type) || PyObject_TypeCheck(op, type);
+    int ret = Py_TYPE(op) == type || PyObject_TypeCheck(op, type);
     Py_DECREF(type);
     return ret;
 }

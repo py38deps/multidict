@@ -16,10 +16,12 @@ hand-rolled ``_PairLock`` (the C extension uses ``Py_BEGIN_CRITICAL_SECTION2``,
 which CPython itself guarantees is deadlock-free).
 """
 
+from __future__ import annotations
+
 import contextlib
 import sys
 import threading
-from typing import Literal
+from typing import Literal, Type, Union
 
 import pytest
 
@@ -41,7 +43,7 @@ else:  # pragma: no cover
 
 pytestmark = pytest.mark.hypothesis
 
-_MD_Classes = type[MultiDict[object]] | type[CIMultiDict[object]]
+_MD_Classes = Union[Type[MultiDict[object]], Type[CIMultiDict[object]]]
 
 
 def _skip_unless_c_extension(cls: _MD_Classes) -> None:
@@ -84,30 +86,29 @@ _OPS: tuple[_Op, ...] = (
 
 
 def _run_op(md: MutableMultiMapping[object], op: _Op, key: str) -> None:
-    match op:
-        case "add":
-            md.add(key, 1)
-        case "setitem":
-            md[key] = 1
-        case "delitem":
-            with contextlib.suppress(KeyError):
-                del md[key]
-        case "popone":
-            md.popone(key, None)
-        case "popall":
-            md.popall(key, None)
-        case "setdefault":
-            md.setdefault(key, 1)
-        case "get":
-            md.get(key)
-        case "items":
-            list(md.items())
-        case "keys":
-            list(md.keys())
-        case "values":
-            list(md.values())
-        case _:  # pragma: no cover
-            assert_never(op)
+    if op == "add":
+        md.add(key, 1)
+    elif op == "setitem":
+        md[key] = 1
+    elif op == "delitem":
+        with contextlib.suppress(KeyError):
+            del md[key]
+    elif op == "popone":
+        md.popone(key, None)
+    elif op == "popall":
+        md.popall(key, None)
+    elif op == "setdefault":
+        md.setdefault(key, 1)
+    elif op == "get":
+        md.get(key)
+    elif op == "items":
+        list(md.items())
+    elif op == "keys":
+        list(md.keys())
+    elif op == "values":
+        list(md.values())
+    else:  # pragma: no cover
+        assert_never(op)
 
 
 def test_run_op_covers_every_op() -> None:
@@ -163,17 +164,16 @@ def _read_second(
     cls: _MD_Classes, source: MutableMultiMapping[object], op: _ReadOp
 ) -> int:
     dst: MutableMultiMapping[object] = cls()
-    match op:
-        case "extend":
-            dst.extend(source)
-        case "update":
-            dst.update(source)
-        case "merge":
-            dst.merge(source)
-        case "copy":
-            dst = cls(source)
-        case _:  # pragma: no cover
-            assert_never(op)
+    if op == "extend":
+        dst.extend(source)
+    elif op == "update":
+        dst.update(source)
+    elif op == "merge":
+        dst.merge(source)
+    elif op == "copy":
+        dst = cls(source)
+    else:  # pragma: no cover
+        assert_never(op)
     return len(dst)
 
 
@@ -253,17 +253,16 @@ _RECIPROCAL_OPS: tuple[_ReciprocalOp, ...] = (
 def _reciprocal(
     a: MutableMultiMapping[object], b: MutableMultiMapping[object], op: _ReciprocalOp
 ) -> None:
-    match op:
-        case "and_items":
-            a.items() & b.items()
-        case "or_keys":
-            a.keys() | b.keys()
-        case "sub_keys_items":
-            a.keys() - b.items()
-        case "isdisjoint_keys":
-            a.keys().isdisjoint(b.keys())
-        case _:  # pragma: no cover
-            assert_never(op)
+    if op == "and_items":
+        a.items() & b.items()
+    elif op == "or_keys":
+        a.keys() | b.keys()
+    elif op == "sub_keys_items":
+        a.keys() - b.items()
+    elif op == "isdisjoint_keys":
+        a.keys().isdisjoint(b.keys())
+    else:  # pragma: no cover
+        assert_never(op)
 
 
 def test_reciprocal_covers_every_op() -> None:

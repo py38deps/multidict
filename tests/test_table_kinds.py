@@ -7,6 +7,8 @@ shows the layout, so these compare sizes and check the contents against
 the pure-Python implementation.
 """
 
+from __future__ import annotations
+
 import gc
 import threading
 import weakref

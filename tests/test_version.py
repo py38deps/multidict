@@ -1,6 +1,7 @@
-from collections.abc import Callable
+from __future__ import annotations
+
 from concurrent.futures import ThreadPoolExecutor
-from typing import TypeVar
+from typing import Callable, TypeVar, Union
 
 import pytest
 
@@ -8,8 +9,10 @@ import multidict._multidict_py as _pure
 from multidict import CIMultiDict, CIMultiDictProxy, MultiDict, MultiDictProxy
 
 _T = TypeVar("_T")
-_MD_Types = MultiDict[_T] | CIMultiDict[_T] | MultiDictProxy[_T] | CIMultiDictProxy[_T]
-GetVersion = Callable[[_MD_Types[_T]], int]
+_MD_Types = Union[
+    MultiDict[_T], CIMultiDict[_T], MultiDictProxy[_T], CIMultiDictProxy[_T]
+]
+GetVersion = Callable[[_MD_Types], int]
 
 
 def test_getversion_bad_param(multidict_getversion_callable: GetVersion[str]) -> None:

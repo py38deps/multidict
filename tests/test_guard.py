@@ -1,8 +1,12 @@
+from __future__ import annotations
+
+from typing import Type, Union
+
 import pytest
 
 from multidict import CIMultiDict, MultiDict
 
-_MD_Classes = type[MultiDict[str]] | type[CIMultiDict[str]]
+_MD_Classes = Union[Type[MultiDict[str]], Type[CIMultiDict[str]]]
 
 
 def test_guard_items(

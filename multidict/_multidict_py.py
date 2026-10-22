@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import enum
 import functools
 import itertools
@@ -5,23 +7,22 @@ import reprlib
 import sys
 import threading
 from array import array
-from collections.abc import (
-    Callable,
-    ItemsView,
-    Iterable,
-    Iterator,
-    KeysView,
-    Mapping,
-    ValuesView,
-)
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Any,
+    Callable,
     ClassVar,
     Generic,
+    ItemsView,
+    Iterable,
+    Iterator,
+    KeysView,
     NoReturn,
+    Set,
     TypeVar,
+    ValuesView,
     cast,
     final,
     overload,
@@ -558,7 +559,7 @@ class _KeysView(_ViewBase[_V], KeysView[str]):
                 continue
             if key in self._md:
                 ret.add(key)
-        return cast(set[_T], ret)
+        return cast(Set[_T], ret)
 
     @_locked_md_pair
     def __or__(self, other: Iterable[_T]) -> set[str | _T]:
@@ -1663,3 +1664,16 @@ def getversion(md: MultiDict[object] | MultiDictProxy[object]) -> int:
     elif not isinstance(md, MultiDict):
         raise TypeError("Parameter should be multidict or proxy")
     return md._version
+
+
+if sys.version_info < (3, 9):
+    # Python 3.8 has no types.GenericAlias, which is what the generic bases'
+    # __class_getitem__ produces on newer versions. Return the class itself
+    # instead, matching the C extension and the pre-3.9 multidict behaviour.
+    def _class_getitem(cls: type, key: object) -> type:
+        return cls
+
+    MultiDict.__class_getitem__ = classmethod(_class_getitem)  # type: ignore[attr-defined]
+    CIMultiDict.__class_getitem__ = classmethod(_class_getitem)  # type: ignore[attr-defined]
+    MultiDictProxy.__class_getitem__ = classmethod(_class_getitem)  # type: ignore[attr-defined]
+    CIMultiDictProxy.__class_getitem__ = classmethod(_class_getitem)  # type: ignore[attr-defined]

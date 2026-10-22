@@ -12,7 +12,7 @@ A finalizer runs promptly only where objects are reference counted, so
 tests using these must skip PyPy.
 """
 
-from collections.abc import Callable
+from typing import Callable, Tuple
 
 
 class Fuse:
@@ -48,7 +48,7 @@ class FinalizerKey(str):
         self.fuse.fire()
 
 
-class FinalizerPair(tuple[str, object]):
+class FinalizerPair(Tuple[str, object]):
     """A (key, value) item of an argument, dropped once it is consumed."""
 
     fuse: Fuse

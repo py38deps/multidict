@@ -9,6 +9,8 @@ Wall clock needs a tuned machine to be meaningful.  See
 ``docs/benchmark.rst`` for how to prepare one.
 """
 
+from __future__ import annotations
+
 import functools
 import time
 

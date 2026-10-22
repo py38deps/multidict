@@ -2,7 +2,7 @@
 multidict
 =========
 
-.. image:: https://github.com/aio-libs/multidict/actions/workflows/ci-cd.yml/badge.svg
+.. image:: https://github.com/aio-libs/multidict/actions/workflows/ci.yml/badge.svg
    :target: https://github.com/aio-libs/multidict/actions
    :alt: GitHub status for master branch
 

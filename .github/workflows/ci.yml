@@ -1,0 +1,263 @@
+---
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_COLOR: "1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PYTHONUTF8: "1"
+
+jobs:
+
+  build:
+    name: Build sdist and pure-python wheel
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      sdist: ${{ steps.build.outputs.sdist }}
+    steps:
+    - uses: actions/checkout@v7
+    - uses: actions/setup-python@v6
+      with:
+        python-version: "3.12"
+    - name: Install build
+      run: python -m pip install build
+    - name: Build sdist and pure-python wheel
+      id: build
+      env:
+        MULTIDICT_NO_EXTENSIONS: Y
+      run: |
+        python -m build
+        echo "sdist=$(basename dist/*.tar.gz)" >> "$GITHUB_OUTPUT"
+    - uses: actions/upload-artifact@v7
+      with:
+        name: dist
+        path: dist/*
+        if-no-files-found: error
+
+  wheels:
+    name: Wheels / ${{ matrix.py }} / ${{ matrix.os }}
+    needs: build
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+        - ubuntu-latest
+        - windows-latest
+        - macos-latest
+        py:
+        - cp38
+        - cp39
+        - cp310
+        - cp311
+        - cp312
+        - cp313
+        - cp314
+        - cp314t
+        include:
+        # CPython 3.8 is gone from the current manylinux/musllinux images,
+        # pin the last image tag that still carries it.
+        - py: cp38
+          image_tag: "2026.05.02-2"
+          archs_linux: "x86_64 aarch64 armv7l ppc64le s390x"
+    env:
+      CIBW_BUILD: "${{ matrix.py }}-*"
+      # cibuildwheel v3 only builds free-threaded wheels when the
+      # corresponding group is enabled.
+      CIBW_ENABLE: "cpython-freethreading"
+      # `build[uv]` from pyproject.toml would need uv on every runner,
+      # plain build is enough here.
+      CIBW_BUILD_FRONTEND: "build"
+      CIBW_ARCHS_LINUX: >-
+        ${{ matrix.archs_linux ||
+        'x86_64 aarch64 armv7l ppc64le s390x riscv64' }}
+      CIBW_ARCHS_MACOS: "x86_64 arm64 universal2"
+      CIBW_ARCHS_WINDOWS: "AMD64"
+      # CPython 3.8 is gone from the current images, pin dated per-arch tags.
+      # manylinux_2_28 / 2_31 keep the wheel tags aligned with newer
+      # versions (manylinux2014 + manylinux_2_17 + the newer policy).
+      CIBW_MANYLINUX_X86_64_IMAGE: >-
+        ${{ matrix.image_tag &&
+        format('quay.io/pypa/manylinux_2_28_x86_64:{0}',
+        matrix.image_tag) || '' }}
+      CIBW_MANYLINUX_AARCH64_IMAGE: >-
+        ${{ matrix.image_tag &&
+        format('quay.io/pypa/manylinux_2_28_aarch64:{0}',
+        matrix.image_tag) || '' }}
+      CIBW_MANYLINUX_PPC64LE_IMAGE: >-
+        ${{ matrix.image_tag &&
+        format('quay.io/pypa/manylinux_2_28_ppc64le:{0}',
+        matrix.image_tag) || '' }}
+      CIBW_MANYLINUX_S390X_IMAGE: >-
+        ${{ matrix.image_tag &&
+        format('quay.io/pypa/manylinux_2_28_s390x:{0}',
+        matrix.image_tag) || '' }}
+      CIBW_MANYLINUX_ARMV7L_IMAGE: >-
+        ${{ matrix.image_tag &&
+        format('quay.io/pypa/manylinux_2_31_armv7l:{0}',
+        matrix.image_tag) || '' }}
+      CIBW_MUSLLINUX_X86_64_IMAGE: >-
+        ${{ matrix.image_tag &&
+        format('quay.io/pypa/musllinux_1_2_x86_64:{0}',
+        matrix.image_tag) || '' }}
+      CIBW_MUSLLINUX_AARCH64_IMAGE: >-
+        ${{ matrix.image_tag &&
+        format('quay.io/pypa/musllinux_1_2_aarch64:{0}',
+        matrix.image_tag) || '' }}
+      CIBW_MUSLLINUX_ARMV7L_IMAGE: >-
+        ${{ matrix.image_tag &&
+        format('quay.io/pypa/musllinux_1_2_armv7l:{0}',
+        matrix.image_tag) || '' }}
+      CIBW_MUSLLINUX_PPC64LE_IMAGE: >-
+        ${{ matrix.image_tag &&
+        format('quay.io/pypa/musllinux_1_2_ppc64le:{0}',
+        matrix.image_tag) || '' }}
+      CIBW_MUSLLINUX_S390X_IMAGE: >-
+        ${{ matrix.image_tag &&
+        format('quay.io/pypa/musllinux_1_2_s390x:{0}',
+        matrix.image_tag) || '' }}
+      # The test job below covers the emulated architectures.
+      CIBW_TEST_SKIP: >-
+        *-manylinux_aarch64 *-manylinux_armv7l *-manylinux_ppc64le
+        *-manylinux_s390x *-manylinux_riscv64 *-musllinux_aarch64
+        *-musllinux_armv7l *-musllinux_ppc64le *-musllinux_s390x
+        *-musllinux_riscv64
+    steps:
+    - uses: actions/checkout@v7
+    - name: Set up QEMU
+      if: runner.os == 'Linux'
+      uses: docker/setup-qemu-action@v4
+      with:
+        platforms: arm64,arm,ppc64le,s390x,riscv64
+    - uses: actions/download-artifact@v8
+      with:
+        name: dist
+        path: dist
+    - uses: pypa/cibuildwheel@v3.2.0
+      with:
+        package-dir: dist/${{ needs.build.outputs.sdist }}
+        output-dir: wheelhouse
+    - uses: actions/upload-artifact@v7
+      with:
+        name: wheels-${{ matrix.py }}-${{ matrix.os }}
+        path: wheelhouse/*.whl
+        if-no-files-found: error
+
+  wheels-windows-arm:
+    name: Wheels / ${{ matrix.py }} / windows-11-arm
+    needs: build
+    runs-on: windows-11-arm
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        py:
+        - cp39
+        - cp310
+        - cp311
+        - cp312
+        - cp313
+        - cp314
+        - cp314t
+    env:
+      CIBW_BUILD: "${{ matrix.py }}-*"
+      CIBW_ENABLE: "cpython-freethreading"
+      CIBW_BUILD_FRONTEND: "build"
+      CIBW_ARCHS_WINDOWS: "ARM64"
+    steps:
+    - uses: actions/checkout@v7
+    - uses: actions/download-artifact@v8
+      with:
+        name: dist
+        path: dist
+    - uses: pypa/cibuildwheel@v3.2.0
+      with:
+        package-dir: dist/${{ needs.build.outputs.sdist }}
+        output-dir: wheelhouse
+    - uses: actions/upload-artifact@v7
+      with:
+        name: wheels-${{ matrix.py }}-windows-arm
+        path: wheelhouse/*.whl
+        if-no-files-found: error
+
+  test:
+    name: >-
+      Test / ${{ matrix.pyver }} / ${{ matrix.os
+      }}${{ matrix.no-extensions && ' / no extensions' || '' }}
+    needs:
+    - build
+    - wheels
+    - wheels-windows-arm
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        pyver:
+        - "3.8"
+        - "3.9"
+        - "3.10"
+        - "3.11"
+        - "3.12"
+        - "3.13"
+        - "3.14"
+        - "3.14t"
+        os:
+        - ubuntu-latest
+        - windows-latest
+        - macos-latest
+        no-extensions:
+        - ""
+        - "Y"
+        exclude:
+        - os: macos-latest
+          no-extensions: "Y"
+        - os: windows-latest
+          no-extensions: "Y"
+    steps:
+    - uses: actions/checkout@v7
+    - uses: actions/setup-python@v6
+      with:
+        python-version: ${{ matrix.pyver }}
+        allow-prereleases: true
+    - name: Download the built dists
+      uses: actions/download-artifact@v8
+      with:
+        name: dist
+        path: dists
+    - name: Download the built wheels
+      uses: actions/download-artifact@v8
+      with:
+        path: dists
+        pattern: wheels-*
+        merge-multiple: true
+    - name: Install test dependencies
+      run: python -m pip install -r requirements/pytest.txt
+    - name: Install multidict${{ matrix.no-extensions && ' (pure Python)' || '' }}
+      shell: bash
+      run: |
+        if [ "${{ matrix.no-extensions }}" = "Y" ]; then
+          python -m pip install --no-index --no-deps \
+            dists/multidict-*-py3-none-any.whl
+        else
+          python -m pip install --no-index --no-deps \
+            --find-links=dists --only-binary=:all: multidict
+        fi
+    - name: Run tests
+      env:
+        MULTIDICT_NO_EXTENSIONS: ${{ matrix.no-extensions }}
+      run: >-
+        python -Im pytest -m "not leaks and not hypothesis and not capi"
+        --no-cov tests/

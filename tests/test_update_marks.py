@@ -1,5 +1,7 @@
 """Duplicate-key bookkeeping on large tables and across resizes."""
 
+from __future__ import annotations
+
 from collections.abc import Iterable, Iterator
 
 import pytest

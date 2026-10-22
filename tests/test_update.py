@@ -1,13 +1,16 @@
+from __future__ import annotations
+
 import sys
 from collections import deque
 from collections.abc import Callable, Iterator
+from typing import Type, Union
 
 import pytest
 
 from multidict import CIMultiDict, MultiDict
 from multidict._multidict_py import MultiDict as PyMultiDict
 
-_MD_Classes = type[MultiDict[int]] | type[CIMultiDict[int]]
+_MD_Classes = Union[Type[MultiDict[int]], Type[CIMultiDict[int]]]
 
 
 def test_update_replace(any_multidict_class: _MD_Classes) -> None:
@@ -143,7 +146,7 @@ def test_compact_after_deletion(any_multidict_class: _MD_Classes) -> None:
     # adding an entry requres keys resizing to remove empty entries
     dct = {str(i): i for i in range(100, 105)}
     obj.extend(dct)
-    assert obj == {str(i): i for i in range(5, NUM - 1)} | dct
+    assert obj == {**{str(i): i for i in range(5, NUM - 1)}, **dct}
 
 
 def test_update_with_empty_slots(any_multidict_class: _MD_Classes) -> None:

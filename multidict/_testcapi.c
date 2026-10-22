@@ -1,5 +1,8 @@
 #include <Python.h>
 
+#include "_multilib/pythoncapi_compat.h"
+#include "_multilib/py38_compat.h"
+
 #include "multidict_capi.h"
 
 /* Exercises the public C API capsule from the test suite. Not part of the

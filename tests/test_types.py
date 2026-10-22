@@ -163,7 +163,10 @@ def test_create_multidict_proxy_too_many_args(
     proxy_class = getattr(multidict_module, proxy_class_name)
     dict_class_name = proxy_class_name.replace("Proxy", "")
     d = getattr(multidict_module, dict_class_name)(key="val")
-    with pytest.raises(TypeError, match="positional argument"):
+    # Python 3.8 words the "too many arguments" TypeError differently.
+    with pytest.raises(
+        TypeError, match="positional argument|expected at most 1 argument"
+    ):
         proxy_class(d, d)
 
 
@@ -175,10 +178,28 @@ def test_create_multidict_proxy_rejects_kwargs(proxy_class_name: str) -> None:
     proxy_class = getattr(multidict, proxy_class_name)
     dict_class_name = proxy_class_name.replace("Proxy", "")
     d = getattr(multidict, dict_class_name)(key="val")
-    with pytest.raises(TypeError, match="keyword arguments"):
+    # Python 3.8 reports the missing positional argument instead of the
+    # unexpected keyword one.
+    with pytest.raises(
+        TypeError,
+        match="keyword arguments|missing 1 required positional argument",
+    ):
         proxy_class(arg=d)
 
 
+@pytest.mark.skipif(
+    sys.version_info >= (3, 9), reason="Python 3.9 uses GenericAlias which is different"
+)
+def test_generic_exists(multidict_module: types.ModuleType) -> None:
+    assert multidict_module.MultiDict[int] is multidict_module.MultiDict
+    assert multidict_module.MultiDictProxy[int] is multidict_module.MultiDictProxy
+    assert multidict_module.CIMultiDict[int] is multidict_module.CIMultiDict
+    assert multidict_module.CIMultiDictProxy[int] is multidict_module.CIMultiDictProxy
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 9), reason="Python 3.9 is required for GenericAlias"
+)
 def test_generic_alias(multidict_module: types.ModuleType) -> None:
     assert multidict_module.MultiDict[int] == types.GenericAlias(
         multidict_module.MultiDict, (int,)

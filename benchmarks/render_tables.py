@@ -8,6 +8,8 @@ read before they are committed.  With it, the span between the two marker
 comments in the target file is replaced.
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import statistics
