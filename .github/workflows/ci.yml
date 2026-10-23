@@ -83,7 +83,8 @@ jobs:
       CIBW_ARCHS_LINUX: >-
         ${{ matrix.archs_linux ||
         'x86_64 aarch64 armv7l ppc64le s390x riscv64' }}
-      CIBW_ARCHS_MACOS: "x86_64 arm64 universal2"
+      # Per-arch wheels cover every macOS install; no universal2 copy.
+      CIBW_ARCHS_MACOS: "x86_64 arm64"
       CIBW_ARCHS_WINDOWS: "AMD64"
       # CPython 3.8 is gone from the current images, pin dated per-arch tags.
       # manylinux_2_28 / 2_31 keep the wheel tags aligned with newer
