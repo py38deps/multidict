@@ -85,6 +85,8 @@ get_mod_state(PyObject* mod)
 }
 
 #if PY_VERSION_HEX < 0x030b0000
+/* Backport: PyType_GetModuleByDef() is 3.11+, but the extension still
+   supports 3.8-3.10, so keep upstream's pre-3.11 fallback here. */
 PyObject*
 PyType_GetModuleByDef(PyTypeObject* tp, PyModuleDef* def)
 {
@@ -143,7 +145,7 @@ get_mod_state_by_def_checked(PyObject* self, mod_state** ret)
 {
     PyTypeObject* tp = Py_TYPE(self);
     PyObject* mod = PyType_GetModuleByDef(tp, &multidict_module);
-    if (mod == NULL) {
+    if (UNLIKELY(mod == NULL)) {
         *ret = NULL;
         if (PyErr_ExceptionMatches(PyExc_TypeError)) {
             PyErr_Clear();

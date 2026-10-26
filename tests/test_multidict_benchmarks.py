@@ -183,13 +183,26 @@ def test_multidict_popitem_str(
 def test_multidict_clear_str(
     benchmark: BenchmarkFixture, any_multidict_class: type[MultiDict[str]]
 ) -> None:
-    md_base = any_multidict_class((str(i), str(i)) for i in range(100))
+    # Copying inside the timed loop made the run mostly copy(), and one
+    # small table per round left the result to wherever malloc put it.
+    bases = [
+        any_multidict_class((str(i), str(i)) for i in range(n)) for n in range(100)
+    ]
 
-    @benchmark
-    def _run() -> None:
-        for _ in range(100):
-            md = md_base.copy()
+    def setup() -> tuple[tuple[list[MultiDict[str]]], dict[str, object]]:
+        return ([md.copy() for _ in range(10) for md in bases],), {}
+
+    def run(mds: list[MultiDict[str]]) -> None:
+        for md in mds:
             md.clear()
+
+    if hasattr(benchmark, "pedantic"):
+        benchmark.pedantic(run, setup=setup)
+    else:  # pragma: no cover - pytest-codspeed 2.2.1 is the last 3.8 release
+        # The 2.x fixture only calls a callable, so pass the setup result in;
+        # the copy stays outside the timed call either way.
+        (mds,), _ = setup()
+        benchmark(run, mds)
 
 
 @pytest.mark.benchmark_shard_2

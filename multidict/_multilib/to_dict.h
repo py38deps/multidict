@@ -28,13 +28,13 @@ _md_to_dict_append(MultiDictObject* md, PyObject** plst, entry_t* e,
         return PyList_Append(*plst, e->value);
     }
     *plst = PyList_New(1);
-    if (*plst == NULL) {
+    if (UNLIKELY(*plst == NULL)) {
         return -1;
     }
-    /* On 3.10 and 3.11, allocating a tracked object can run a collection
+    /* On 3.11, allocating a tracked object can run a collection
        whose finalizers mutate md: refused as below, before `e` is read
        again. */
-    if (md_check_version(md, version) < 0) {
+    if (UNLIKELY(md_check_version(md, version) < 0)) {
         return -1;
     }
     PyList_SET_ITEM(*plst, 0, Py_NewRef(e->value));
@@ -50,14 +50,14 @@ _md_to_dict_store(MultiDictObject* md, PyObject* dict, entry_t* entry,
                   PyObject* lst, uint64_t version)
 {
     PyObject* key = md_ensure_key(md, entry);
-    if (key == NULL) {
+    if (UNLIKELY(key == NULL)) {
         Py_DECREF(lst);
         return -1;
     }
     int ret = PyDict_SetItem(dict, key, lst);
     Py_DECREF(key);
     Py_DECREF(lst);
-    if (ret < 0) {
+    if (UNLIKELY(ret < 0)) {
         return -1;
     }
     return md_check_version(md, version);
@@ -69,7 +69,7 @@ _md_to_dict_single(MultiDictObject* md, PyObject* dict, entry_t* entry,
                    uint64_t version)
 {
     PyObject* lst = NULL;
-    if (_md_to_dict_append(md, &lst, entry, version) < 0) {
+    if (UNLIKELY(_md_to_dict_append(md, &lst, entry, version) < 0)) {
         Py_XDECREF(lst);
         return -1;
     }
@@ -82,54 +82,53 @@ _md_to_dict_single(MultiDictObject* md, PyObject* dict, entry_t* entry,
    first match is `pos` itself and only the later ones need a mark for the
    outer loop to skip; a repeated slot is one not above the last match,
    as in md_walk_with_hash(). */
-#define _MD_TO_DICT_COLLECT(find, identity_, hash_, pos)        \
-    do {                                                        \
-        PyObject* identity = (identity_);                       \
-        Py_hash_t hash = (hash_);                               \
-        htkeysiter_t iter;                                      \
-        HTKEYSITER_INIT(&iter, keys, hash);                     \
-        entry_t* e = NULL;                                      \
-        find(&iter, identity, hash, e);                         \
-        assert(e != NULL && iter.index == (pos));               \
-        Py_ssize_t last = iter.index;                           \
-        if (_md_to_dict_append(md, &lst, e, version) < 0) {     \
-            goto fail;                                          \
-        }                                                       \
-        for (;;) {                                              \
-            find(&iter, identity, hash, e);                     \
-            if (e == NULL) {                                    \
-                break;                                          \
-            }                                                   \
-            if (iter.index <= last) {                           \
-                continue;                                       \
-            }                                                   \
-            last = iter.index;                                  \
-            if (bitmap_set(&collected, last) < 0 ||             \
-                _md_to_dict_append(md, &lst, e, version) < 0) { \
-                goto fail;                                      \
-            }                                                   \
-        }                                                       \
+#define _MD_TO_DICT_COLLECT(find, identity_, hash_, pos)                  \
+    do {                                                                  \
+        PyObject* identity = (identity_);                                 \
+        Py_hash_t hash = (hash_);                                         \
+        htkeysiter_t iter;                                                \
+        HTKEYSITER_INIT(&iter, keys, hash);                               \
+        entry_t* e = NULL;                                                \
+        find(&iter, identity, hash, e);                                   \
+        assert(e != NULL && iter.index == (pos));                         \
+        Py_ssize_t last = iter.index;                                     \
+        if (UNLIKELY(_md_to_dict_append(md, &lst, e, version) < 0)) {     \
+            goto fail;                                                    \
+        }                                                                 \
+        for (;;) {                                                        \
+            find(&iter, identity, hash, e);                               \
+            if (e == NULL) {                                              \
+                break;                                                    \
+            }                                                             \
+            if (iter.index <= last) {                                     \
+                continue;                                                 \
+            }                                                             \
+            last = iter.index;                                            \
+            if (UNLIKELY(bitmap_set(&collected, last) < 0 ||              \
+                         _md_to_dict_append(md, &lst, e, version) < 0)) { \
+                goto fail;                                                \
+            }                                                             \
+        }                                                                 \
     } while (0)
 
 /* _md_to_dict_locked()'s loop over a KIND_COMPACT table, `sfx` being cs
-   or ci as for compact_entry_identity_cs(), and `find` its
+   or ci as for compact_key_identity_cs(), and `find` its
    HTKEYSITER_FIND_COMPACT_CS() or _CI(). */
 #define _MD_TO_DICT_COMPACT_LOOP(sfx, find)                                \
     do {                                                                   \
         entry_t* entries = HTKEYS_COMPACT_ENTRIES(keys);                   \
         for (Py_ssize_t pos = 0; pos < keys->nentries; pos++) {            \
             entry_t* entry = entries + pos;                                \
-            if (compact_entry_is_hole(entry) ||                            \
-                bitmap_test(&collected, pos)) {                            \
+            if (entry_is_hole(entry) || bitmap_test(&collected, pos)) {    \
                 continue; /* deleted, or collected under its first key */  \
             }                                                              \
             _MD_TO_DICT_COLLECT(find,                                      \
-                                compact_entry_identity_##sfx(entry),       \
-                                compact_entry_hash_##sfx(entry),           \
+                                compact_key_identity_##sfx(entry->key),    \
+                                compact_key_hash_##sfx(entry->key),        \
                                 pos);                                      \
             int stored = _md_to_dict_store(md, dict, entry, lst, version); \
             lst = NULL;                                                    \
-            if (stored < 0) {                                              \
+            if (UNLIKELY(stored < 0)) {                                    \
                 goto fail;                                                 \
             }                                                              \
         }                                                                  \
@@ -143,7 +142,7 @@ COLD static int
 _md_to_dict_locked(MultiDictObject* md, PyObject** ret)
 {
     PyObject* dict = PyDict_New();
-    if (dict == NULL) {
+    if (UNLIKELY(dict == NULL)) {
         return -1;
     }
     PyObject* lst = NULL;
@@ -161,8 +160,9 @@ _md_to_dict_locked(MultiDictObject* md, PyObject** ret)
             entry_t* entries = HTKEYS_COMPACT_ENTRIES(keys);
             for (Py_ssize_t pos = 0; pos < keys->nentries; pos++) {
                 entry_t* entry = entries + pos;
-                if (!compact_entry_is_hole(entry) &&
-                    _md_to_dict_single(md, dict, entry, version) < 0) {
+                if (!entry_is_hole(entry) &&
+                    UNLIKELY(_md_to_dict_single(md, dict, entry, version) <
+                             0)) {
                     goto fail;
                 }
             }
@@ -170,8 +170,9 @@ _md_to_dict_locked(MultiDictObject* md, PyObject** ret)
             anystr_entry_t* entries = HTKEYS_ANYSTR_ENTRIES(keys);
             for (Py_ssize_t pos = 0; pos < keys->nentries; pos++) {
                 anystr_entry_t* entry = entries + pos;
-                if (!anystr_entry_is_hole(entry) &&
-                    _md_to_dict_single(md, dict, &entry->base, version) < 0) {
+                if (!entry_is_hole((const entry_t*)entry) &&
+                    UNLIKELY(_md_to_dict_single(
+                                 md, dict, &entry->base, version) < 0)) {
                     goto fail;
                 }
             }
@@ -186,7 +187,8 @@ _md_to_dict_locked(MultiDictObject* md, PyObject** ret)
         anystr_entry_t* entries = HTKEYS_ANYSTR_ENTRIES(keys);
         for (Py_ssize_t pos = 0; pos < keys->nentries; pos++) {
             anystr_entry_t* entry = entries + pos;
-            if (anystr_entry_is_hole(entry) || bitmap_test(&collected, pos)) {
+            if (entry_is_hole((const entry_t*)entry) ||
+                bitmap_test(&collected, pos)) {
                 continue;  // deleted, or collected under its first key
             }
             _MD_TO_DICT_COLLECT(
@@ -194,7 +196,7 @@ _md_to_dict_locked(MultiDictObject* md, PyObject** ret)
             int stored =
                 _md_to_dict_store(md, dict, &entry->base, lst, version);
             lst = NULL;
-            if (stored < 0) {
+            if (UNLIKELY(stored < 0)) {
                 goto fail;
             }
         }

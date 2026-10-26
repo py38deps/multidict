@@ -110,7 +110,7 @@ _ascii_lower(const Py_UCS1* data, Py_ssize_t len)
        uppercase byte, so the caller reuses it instead of calling here. */
     assert(len > 0);
     PyObject* ret = PyUnicode_New(len, 127);
-    if (ret == NULL) {
+    if (UNLIKELY(ret == NULL)) {
         return NULL;
     }
     Py_UCS1* dst = (Py_UCS1*)PyUnicode_DATA(ret);
@@ -137,7 +137,7 @@ _str_call_lower_ci(mod_state* state, PyObject* key)
     /* str.__str__(key).lower(), never a subclass's own lower(): no Python
        code runs, and the exact copy takes the ASCII path. */
     PyObject* str = PyUnicode_FromObject(key);
-    if (str == NULL) {
+    if (UNLIKELY(str == NULL)) {
         return NULL;
     }
     PyObject* ret = _str_to_identity_ci(state, str);
@@ -200,7 +200,7 @@ static PyObject*
 _subclass_to_key_ci(mod_state* state, PyObject* key, PyObject* identity)
 {
     PyObject* str = PyUnicode_FromObject(key);
-    if (str == NULL) {
+    if (UNLIKELY(str == NULL)) {
         return NULL;
     }
     PyObject* ret = IStr_New(state, str, identity);
@@ -251,6 +251,57 @@ md_borrow_identity(MultiDictObject* md, PyObject* key)
     return key;
 }
 
+/* A CIMultiDict key that is no exact istr: the key itself when it is its
+   own identity, else a new reference to a lowercased copy, never to the
+   key. */
+static PyObject*
+_str_identity_or_new_ci(mod_state* state, PyObject* key)
+{
+    if (PyUnicode_CheckExact(key) && PyUnicode_IS_ASCII(key)) {
+        Py_ssize_t len = PyUnicode_GET_LENGTH(key);
+        const Py_UCS1* data = (const Py_UCS1*)PyUnicode_DATA(key);
+        if (!_ascii_has_upper(data, len)) {
+            return key;
+        }
+        return _ascii_lower(data, len);
+    }
+    PyObject* identity = _str_call_lower_ci(state, key);
+    if (identity == key) {
+        Py_DECREF(identity);
+    }
+    return identity;
+}
+
+/* md_borrow_identity() for a call that computes the identity when it
+   cannot borrow it, with each test of the key run once: the identity is
+   borrowed or new, and md_identity_release() drops it. NULL with an
+   exception set on error. */
+static inline PyObject*
+md_identity_or_new(MultiDictObject* md, PyObject* key)
+{
+    if (md->is_ci) {
+        if (IStr_CheckExact(md->state, key)) {
+            return istr_canonical(key);
+        }
+        return _str_identity_or_new_ci(md->state, key);
+    }
+    if (UNLIKELY(!PyUnicode_CheckExact(key))) {
+        return _key_to_identity_cs(md->state, key);
+    }
+    return key;
+}
+
+/* Drops the identity md_identity_or_new() handed out if it is a new
+   reference: only the key itself and an exact istr's canonical are
+   borrowed. */
+static inline void
+md_identity_release(MultiDictObject* md, PyObject* key, PyObject* identity)
+{
+    if (identity != key && !(md->is_ci && IStr_CheckExact(md->state, key))) {
+        Py_DECREF(identity);
+    }
+}
+
 /* md_calc_identity() that also says whether key fits a compact table (see
    md_key_fits()): a CIMultiDict's istr test has just run here, so the
    insert need not repeat it. */
@@ -270,43 +321,29 @@ md_calc_identity_fits(MultiDictObject* md, PyObject* key, bool* pfits)
     return identity;
 }
 
+/* Returned by value, like parse2_t: out-parameters would make the caller's
+   locals address-taken whenever GCC keeps the helper out of line, and
+   -fstack-protector-strong then gives the caller a canary.  identity is
+   NULL on error. */
+typedef struct {
+    PyObject* identity;
+    Py_hash_t hash;
+} identity_hash_t;
+
 /* Reads only `key`, md->is_ci and md->state, all fixed for md's lifetime,
    so the caller need not hold md's critical section. */
-static inline int
-md_calc_identity_hash(MultiDictObject* md, PyObject* key, PyObject** pidentity,
-                      Py_hash_t* phash)
+static inline identity_hash_t
+md_calc_identity_hash(MultiDictObject* md, PyObject* key)
 {
-    PyObject* identity = md_calc_identity(md, key);
-    if (identity == NULL) {
-        return -1;
+    identity_hash_t ret = {md_calc_identity(md, key), -1};
+    if (UNLIKELY(ret.identity == NULL)) {
+        return ret;
     }
-    Py_hash_t hash = unicode_hash(identity);
-    if (hash == -1) {
-        Py_DECREF(identity);
-        return -1;
+    ret.hash = unicode_hash(ret.identity);
+    if (UNLIKELY(ret.hash == -1)) {
+        Py_CLEAR(ret.identity);
     }
-    *pidentity = identity;
-    *phash = hash;
-    return 0;
-}
-
-/* md_calc_identity_hash() plus md_calc_identity_fits()'s *pfits. */
-static inline int
-md_calc_identity_hash_fits(MultiDictObject* md, PyObject* key,
-                           PyObject** pidentity, Py_hash_t* phash, bool* pfits)
-{
-    PyObject* identity = md_calc_identity_fits(md, key, pfits);
-    if (identity == NULL) {
-        return -1;
-    }
-    Py_hash_t hash = unicode_hash(identity);
-    if (hash == -1) {
-        Py_DECREF(identity);
-        return -1;
-    }
-    *pidentity = identity;
-    *phash = hash;
-    return 0;
+    return ret;
 }
 
 static inline PyObject*
@@ -327,7 +364,7 @@ _md_cache_key_ci(MultiDictObject* md, entry_t* entry)
     uint64_t version = md->version;
     PyObject* old_key = Py_NewRef(entry->key);
     PyObject* identity = Py_NewRef(kind_is_compact(md->keys->kind)
-                                       ? compact_entry_identity_ci(entry)
+                                       ? compact_key_identity_ci(entry->key)
                                        : as_anystr(entry)->identity);
     PyObject* key = _arg_to_key_ci(md->state, old_key, identity);
     if (key != NULL && md->version == version &&

@@ -44,7 +44,7 @@ _md_walk_visit(MultiDictObject* md, entry_t* entry, PyObject* identity,
     PyObject* key = NULL;
     if (with_keys) {
         key = md_ensure_key(md, entry);  // last entry access
-        if (key == NULL) {
+        if (UNLIKELY(key == NULL)) {
             Py_DECREF(value);
             Py_DECREF(identity);
             return -1;
@@ -54,12 +54,12 @@ _md_walk_visit(MultiDictObject* md, entry_t* entry, PyObject* identity,
     Py_XDECREF(key);
     Py_DECREF(value);
     Py_DECREF(identity);
-    if (ret < 0) {
+    if (UNLIKELY(ret < 0)) {
         assert(PyErr_Occurred());
         return -1;
     }
     /* md_ensure_key() and the visitor can both run Python code. */
-    if (md_check_version(md, version) < 0) {
+    if (UNLIKELY(md_check_version(md, version) < 0)) {
         return -1;
     }
     return ret == 0 ? 0 : 1;
@@ -87,12 +87,12 @@ md_walk_all(MultiDictObject* md, bool with_keys, md_item_visitor_t visitor,
         entry_t* entry = HTKEYS_COMPACT_ENTRIES(keys);
         for (entry_t* end = entry + keys->nentries; ret > 0 && entry < end;
              entry++) {
-            if (!compact_entry_is_hole(entry)) {
+            if (!entry_is_hole(entry)) {
                 count++;
                 ret = _md_walk_visit(md,
                                      entry,
-                                     compact_entry_identity_ci(entry),
-                                     compact_entry_hash_ci(entry),
+                                     compact_key_identity_ci(entry->key),
+                                     compact_key_hash_ci(entry->key),
                                      with_keys,
                                      visitor,
                                      user_data,
@@ -103,12 +103,12 @@ md_walk_all(MultiDictObject* md, bool with_keys, md_item_visitor_t visitor,
         entry_t* entry = HTKEYS_COMPACT_ENTRIES(keys);
         for (entry_t* end = entry + keys->nentries; ret > 0 && entry < end;
              entry++) {
-            if (!compact_entry_is_hole(entry)) {
+            if (!entry_is_hole(entry)) {
                 count++;
                 ret = _md_walk_visit(md,
                                      entry,
-                                     compact_entry_identity_cs(entry),
-                                     compact_entry_hash_cs(entry),
+                                     compact_key_identity_cs(entry->key),
+                                     compact_key_hash_cs(entry->key),
                                      with_keys,
                                      visitor,
                                      user_data,
@@ -120,7 +120,7 @@ md_walk_all(MultiDictObject* md, bool with_keys, md_item_visitor_t visitor,
         for (anystr_entry_t* end = entry + keys->nentries;
              ret > 0 && entry < end;
              entry++) {
-            if (!anystr_entry_is_hole(entry)) {
+            if (!entry_is_hole((const entry_t*)entry)) {
                 count++;
                 ret = _md_walk_visit(md,
                                      &entry->base,
@@ -147,7 +147,7 @@ _md_walk_matched(MultiDictObject* md, entry_t* entry, PyObject* identity,
     PyObject* key = NULL;
     if (with_keys) {
         key = md_ensure_key(md, entry);  // last entry access
-        if (key == NULL) {
+        if (UNLIKELY(key == NULL)) {
             Py_DECREF(value);
             return -1;
         }
@@ -155,12 +155,12 @@ _md_walk_matched(MultiDictObject* md, entry_t* entry, PyObject* identity,
     int ret = visitor(user_data, identity, hash, key, value);
     Py_XDECREF(key);
     Py_DECREF(value);
-    if (ret < 0) {
+    if (UNLIKELY(ret < 0)) {
         assert(PyErr_Occurred());
         return -1;
     }
     /* md_ensure_key() and the visitor can both run Python code. */
-    if (md_check_version(md, version) < 0) {
+    if (UNLIKELY(md_check_version(md, version) < 0)) {
         return -1;
     }
     return ret == 0 ? 0 : 1;
@@ -198,56 +198,59 @@ md_walk_with_hash(MultiDictObject* md, PyObject* identity, Py_hash_t hash,
     Py_ssize_t count = 0;
     Py_ssize_t last = -1;
     int ret = 1;
-    entry_t* entry = NULL;
     // otherwise the first match is the key's only entry
     bool dups = md->keys->maybe_dups;
-    if (kind_is_compact(md->keys->kind) && ci) {
-        while (ret > 0) {
-            HTKEYSITER_FIND_COMPACT_CI(&iter, identity, hash, entry);
-            if (entry == NULL) {
-                break;
+    if (kind_is_compact(md->keys->kind)) {
+        entry_t* entry = NULL;
+        if (ci) {
+            while (ret > 0) {
+                HTKEYSITER_FIND_COMPACT_CI(&iter, identity, hash, entry);
+                if (entry == NULL) {
+                    break;
+                }
+                if (iter.index <= last) {
+                    continue;
+                }
+                last = iter.index;
+                ret = _md_walk_matched(md,
+                                       entry,
+                                       identity,
+                                       hash,
+                                       with_keys,
+                                       visitor,
+                                       user_data,
+                                       version);
+                count += ret >= 0;
+                if (!dups) {
+                    break;
+                }
             }
-            if (iter.index <= last) {
-                continue;
-            }
-            last = iter.index;
-            ret = _md_walk_matched(md,
-                                   entry,
-                                   identity,
-                                   hash,
-                                   with_keys,
-                                   visitor,
-                                   user_data,
-                                   version);
-            count += ret >= 0;
-            if (!dups) {
-                break;
-            }
-        }
-    } else if (kind_is_compact(md->keys->kind)) {
-        while (ret > 0) {
-            HTKEYSITER_FIND_COMPACT_CS(&iter, identity, hash, entry);
-            if (entry == NULL) {
-                break;
-            }
-            if (iter.index <= last) {
-                continue;
-            }
-            last = iter.index;
-            ret = _md_walk_matched(md,
-                                   entry,
-                                   identity,
-                                   hash,
-                                   with_keys,
-                                   visitor,
-                                   user_data,
-                                   version);
-            count += ret >= 0;
-            if (!dups) {
-                break;
+        } else {
+            while (ret > 0) {
+                HTKEYSITER_FIND_COMPACT_CS(&iter, identity, hash, entry);
+                if (entry == NULL) {
+                    break;
+                }
+                if (iter.index <= last) {
+                    continue;
+                }
+                last = iter.index;
+                ret = _md_walk_matched(md,
+                                       entry,
+                                       identity,
+                                       hash,
+                                       with_keys,
+                                       visitor,
+                                       user_data,
+                                       version);
+                count += ret >= 0;
+                if (!dups) {
+                    break;
+                }
             }
         }
     } else {
+        entry_t* entry = NULL;
         while (ret > 0) {
             HTKEYSITER_FIND_ANYSTR(&iter, identity, hash, entry);
             if (entry == NULL) {
@@ -280,7 +283,7 @@ md_walk(MultiDictObject* md, PyObject* identity, bool with_keys,
         md_item_visitor_t visitor, void* user_data)
 {
     Py_hash_t hash = unicode_hash(identity);
-    if (hash == -1) {
+    if (UNLIKELY(hash == -1)) {
         return -1;
     }
     return md_walk_with_hash(
