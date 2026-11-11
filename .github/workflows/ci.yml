@@ -156,6 +156,57 @@ jobs:
         path: wheelhouse/*.whl
         if-no-files-found: error
 
+  wheels-cp315:
+    name: Wheels / ${{ matrix.py }} / ${{ matrix.os }}
+    needs: build
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+        - ubuntu-latest
+        - windows-latest
+        - macos-latest
+        py:
+        - cp315
+        - cp315t
+    env:
+      CIBW_BUILD: "${{ matrix.py }}-*"
+      # cibuildwheel v4 builds for CPython 3.15 and produces free-threaded
+      # wheels by default, but it can no longer build for 3.8, so 3.15 gets
+      # its own job here while `wheels` above stays on cibuildwheel v3.
+      CIBW_BUILD_FRONTEND: "build"
+      CIBW_ARCHS_LINUX: "x86_64 aarch64 armv7l ppc64le s390x riscv64"
+      CIBW_ARCHS_MACOS: "x86_64 arm64"
+      CIBW_ARCHS_WINDOWS: "AMD64"
+      # The test job below covers the emulated architectures.
+      CIBW_TEST_SKIP: >-
+        *-manylinux_aarch64 *-manylinux_armv7l *-manylinux_ppc64le
+        *-manylinux_s390x *-manylinux_riscv64 *-musllinux_aarch64
+        *-musllinux_armv7l *-musllinux_ppc64le *-musllinux_s390x
+        *-musllinux_riscv64
+    steps:
+    - uses: actions/checkout@v7
+    - name: Set up QEMU
+      if: runner.os == 'Linux'
+      uses: docker/setup-qemu-action@v4
+      with:
+        platforms: arm64,arm,ppc64le,s390x,riscv64
+    - uses: actions/download-artifact@v8
+      with:
+        name: dist
+        path: dist
+    - uses: pypa/cibuildwheel@v4.2.1
+      with:
+        package-dir: dist/${{ needs.build.outputs.sdist }}
+        output-dir: wheelhouse
+    - uses: actions/upload-artifact@v7
+      with:
+        name: wheels-${{ matrix.py }}-${{ matrix.os }}
+        path: wheelhouse/*.whl
+        if-no-files-found: error
+
   wheels-windows-arm:
     name: Wheels / ${{ matrix.py }} / windows-11-arm
     needs: build
@@ -193,6 +244,37 @@ jobs:
         path: wheelhouse/*.whl
         if-no-files-found: error
 
+  wheels-windows-arm-cp315:
+    name: Wheels / ${{ matrix.py }} / windows-11-arm
+    needs: build
+    runs-on: windows-11-arm
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        py:
+        - cp315
+        - cp315t
+    env:
+      CIBW_BUILD: "${{ matrix.py }}-*"
+      CIBW_BUILD_FRONTEND: "build"
+      CIBW_ARCHS_WINDOWS: "ARM64"
+    steps:
+    - uses: actions/checkout@v7
+    - uses: actions/download-artifact@v8
+      with:
+        name: dist
+        path: dist
+    - uses: pypa/cibuildwheel@v4.2.1
+      with:
+        package-dir: dist/${{ needs.build.outputs.sdist }}
+        output-dir: wheelhouse
+    - uses: actions/upload-artifact@v7
+      with:
+        name: wheels-${{ matrix.py }}-windows-arm
+        path: wheelhouse/*.whl
+        if-no-files-found: error
+
   test:
     name: >-
       Test / ${{ matrix.pyver }} / ${{ matrix.os
@@ -201,6 +283,8 @@ jobs:
     - build
     - wheels
     - wheels-windows-arm
+    - wheels-cp315
+    - wheels-windows-arm-cp315
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -215,6 +299,8 @@ jobs:
         - "3.13"
         - "3.14"
         - "3.14t"
+        - "3.15"
+        - "3.15t"
         os:
         - ubuntu-latest
         - windows-latest
