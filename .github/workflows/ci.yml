@@ -176,6 +176,7 @@ jobs:
       # cibuildwheel v4 builds for CPython 3.15 and produces free-threaded
       # wheels by default, but it can no longer build for 3.8, so 3.15 gets
       # its own job here while `wheels` above stays on cibuildwheel v3.
+      # v4.3.5 ships CPython 3.15.2 and includes the eMudhra CA fixes.
       CIBW_BUILD_FRONTEND: "build"
       CIBW_ARCHS_LINUX: "x86_64 aarch64 armv7l ppc64le s390x riscv64"
       CIBW_ARCHS_MACOS: "x86_64 arm64"
@@ -197,7 +198,7 @@ jobs:
       with:
         name: dist
         path: dist
-    - uses: pypa/cibuildwheel@v4.2.1
+    - uses: pypa/cibuildwheel@v4.3.5
       with:
         package-dir: dist/${{ needs.build.outputs.sdist }}
         output-dir: wheelhouse
@@ -265,7 +266,7 @@ jobs:
       with:
         name: dist
         path: dist
-    - uses: pypa/cibuildwheel@v4.2.1
+    - uses: pypa/cibuildwheel@v4.3.5
       with:
         package-dir: dist/${{ needs.build.outputs.sdist }}
         output-dir: wheelhouse
